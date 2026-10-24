@@ -1,0 +1,67 @@
+# /etc/alertmanager/alertmanager.yml
+# 校验：amtool check-config /etc/alertmanager/alertmanager.yml
+#
+# 邮件通道三件套最容易踩坑：
+#   1. smtp_auth_password 必须是「授权码」，不是网页登录密码
+#   2. 465 用 SSL（smtp_require_tls: false），587 才走 STARTTLS
+#   3. smtp_from 必须等于认证账号，否则 550
+
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: 'smtp.163.com:465'
+  smtp_from: 'your_mail@163.com'
+  smtp_auth_username: 'your_mail@163.com'
+  smtp_auth_password: '<邮箱授权码>'
+  smtp_require_tls: false
+
+route:
+  receiver: 'email-default'
+  group_by: ['alertname', 'instance', 'severity']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 1h
+  routes:
+    - matchers: ['severity="P0"']
+      receiver: 'email-p0'
+      group_wait: 10s
+      repeat_interval: 30m
+    - matchers: ['severity="P2"']
+      receiver: 'email-low'
+      group_wait: 60s
+      repeat_interval: 4h
+
+receivers:
+  - name: 'email-default'
+    email_configs:
+      - to: 'ops@example.com'
+        send_resolved: true
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} ({{ .CommonLabels.severity }})'
+
+  - name: 'email-p0'
+    email_configs:
+      - to: 'ops@example.com,oncall@example.com'
+        send_resolved: true
+        headers:
+          Subject: '[P0][{{ .Status | toUpper }}] {{ .CommonLabels.alertname }} - {{ .CommonLabels.instance }}'
+
+  - name: 'email-low'
+    email_configs:
+      - to: 'ops@example.com'
+        send_resolved: false
+
+inhibit_rules:
+  # 主机失联时，抑制它身上所有容量/性能告警：一次宕机只收 1 封
+  - source_matchers: ['alertname="InstanceDown"']
+    target_matchers: ['alertname=~".+High|.+Low|.+Critical"']
+    equal: ['instance']
+
+  # P0 抑制同实例同名的 P1/P2
+  - source_matchers: ['severity="P0"']
+    target_matchers: ['severity=~"P1|P2"']
+    equal: ['alertname', 'instance']
+
+  # 主从断裂时，抑制"延迟高"（延迟是结果，不是原因）
+  - source_matchers: ['alertname="MySQLReplicationBroken"']
+    target_matchers: ['alertname="MySQLReplicationLag"']
+    equal: ['instance']

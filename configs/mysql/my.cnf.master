@@ -1,0 +1,38 @@
+# /etc/my.cnf.d/master.cnf —— MySQL 8.0 主库
+# 从库只需把 server-id 改 2、去掉 log-bin、加 read_only
+
+[mysqld]
+server-id                = 1
+datadir                  = /data/mysql
+socket                   = /data/mysql/mysql.sock
+log-error                = /data/mysql/error.log
+
+# 复制：GTID + ROW，免记 binlog 位点，数据一致性最好
+gtid_mode                = ON
+enforce_gtid_consistency = ON
+log-bin                  = /data/mysql/binlog/mysql-bin
+binlog_format            = ROW
+binlog_row_image         = FULL
+binlog_expire_logs_seconds = 604800      # 7 天，别用 rm 删 binlog
+sync_binlog              = 1
+
+# InnoDB：4G 机器给 1G，一般按物理内存 50%~70%
+innodb_buffer_pool_size  = 1G
+innodb_flush_log_at_trx_commit = 1
+innodb_file_per_table    = ON
+innodb_io_capacity       = 200
+
+max_connections          = 500
+character_set_server     = utf8mb4
+collation_server         = utf8mb4_0900_ai_ci
+default_time_zone        = '+08:00'
+
+# 慢查询：1 秒以上都记，定期用 pt-query-digest 分析
+slow_query_log           = ON
+slow_query_log_file      = /data/mysql/slow.log
+long_query_time          = 1
+log_queries_not_using_indexes = OFF
+
+# 安全
+local_infile             = OFF
+skip_name_resolve        = ON

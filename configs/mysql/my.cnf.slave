@@ -1,0 +1,35 @@
+# /etc/my.cnf.d/slave.cnf —— MySQL 8.0 从库
+# 与主库的差异只有三处：server-id / 不开 log-bin / 只读
+
+[mysqld]
+server-id                = 2
+datadir                  = /data/mysql
+socket                   = /data/mysql/mysql.sock
+log-error                = /data/mysql/error.log
+
+# 从库不需要写 binlog（除非要做级联复制）
+skip_log_bin
+
+gtid_mode                = ON
+enforce_gtid_consistency = ON
+binlog_format            = ROW
+
+# 只读：防止误写导致主从数据不一致（这正是 SQL 线程 1062 报错的常见来源）
+read_only                = ON
+super_read_only          = ON
+
+# 并行回放：加快大事务追平
+replica_parallel_workers = 4
+replica_parallel_type    = LOGICAL_CLOCK
+replica_preserve_commit_order = ON
+relay_log_recovery       = ON
+
+innodb_buffer_pool_size  = 2G
+max_connections          = 500
+character_set_server     = utf8mb4
+collation_server         = utf8mb4_0900_ai_ci
+default_time_zone        = '+08:00'
+
+slow_query_log           = ON
+slow_query_log_file      = /data/mysql/slow.log
+long_query_time          = 1

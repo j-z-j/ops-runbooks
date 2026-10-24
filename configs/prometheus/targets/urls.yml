@@ -1,0 +1,29 @@
+# /etc/prometheus/targets/urls.yml —— 业务 URL 探活目标（20 个）
+# 由 blackbox_exporter 的 http_2xx 模块探测，主要看 probe_success / probe_duration_seconds /
+# probe_ssl_earliest_cert_expiry 三个指标
+
+- targets:
+    - https://demo.example.com/
+    - https://demo.example.com/products
+    - https://demo.example.com/products/1001
+    - https://demo.example.com/solutions
+    - https://demo.example.com/about
+    - https://demo.example.com/news
+    - https://demo.example.com/news/2026-05
+    - https://demo.example.com/contact
+    - https://demo.example.com/search?q=plc
+    - https://demo.example.com/api/health
+    - https://demo.example.com/api/v1/products
+    - https://demo.example.com/api/v1/categories
+    - https://demo.example.com/static/app.css
+    - https://demo.example.com/static/app.js
+    - https://demo.example.com/sitemap.xml
+    - https://demo.example.com/robots.txt
+    - https://admin.example.com/login
+    - https://admin.example.com/dashboard
+    - https://api.example.com/healthz
+    - https://api.example.com/readyz
+  labels:
+    module: http_2xx
+    env: prod
+    owner: ops

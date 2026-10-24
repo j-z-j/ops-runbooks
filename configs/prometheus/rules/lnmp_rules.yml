@@ -1,0 +1,256 @@
+groups:
+  - name: host-availability
+    rules:
+      - alert: InstanceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: P0
+          team: ops
+        annotations:
+          summary: "主机 {{ $labels.instance }} 失联"
+          description: "{{ $labels.job }} 抓取失败超过 1 分钟，实例 {{ $labels.instance }} 不可达。"
+
+      - alert: NodeHighLoad
+        expr: node_load1 > 8
+        for: 5m
+        labels:
+          severity: P1
+          team: ops
+        annotations:
+          summary: "{{ $labels.instance }} 负载过高 ({{ $value }})"
+
+      - alert: NodeCPUHigh
+        expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 10m
+        labels:
+          severity: P1
+        annotations:
+          summary: "{{ $labels.instance }} CPU 使用率 {{ $value | printf \"%.1f\" }}%"
+
+  - name: host-capacity
+    rules:
+      - alert: DiskUsageHigh
+        expr: (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 > 85
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "{{ $labels.instance }} 分区 {{ $labels.mountpoint }} 使用率 {{ $value | printf \"%.1f\" }}%"
+
+      - alert: DiskUsageCritical
+        expr: (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay"}) * 100 > 95
+        for: 2m
+        labels:
+          severity: P0
+        annotations:
+          summary: "{{ $labels.instance }} 分区 {{ $labels.mountpoint }} 即将写满"
+
+      - alert: InodeUsageHigh
+        expr: (1 - node_filesystem_files_free / node_filesystem_files) * 100 > 90
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} inode 使用率过高"
+
+      - alert: DiskWillFillIn4h
+        expr: predict_linear(node_filesystem_avail_bytes[6h], 4 * 3600) < 0
+        for: 30m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} 预计 4 小时内磁盘写满"
+
+  - name: host-memory
+    rules:
+      - alert: MemoryAvailableLow
+        expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes * 100 < 10
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "{{ $labels.instance }} 可用内存低于 10%"
+
+      - alert: SwapInHigh
+        expr: rate(node_vmstat_pswpin[5m]) > 100
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} 频繁换页"
+
+      - alert: OOMKillDetected
+        expr: increase(node_vmstat_oom_kill[10m]) > 0
+        labels:
+          severity: P0
+        annotations:
+          summary: "{{ $labels.instance }} 发生 OOM Kill"
+
+  - name: network
+    rules:
+      - alert: NetworkReceiveErrors
+        expr: rate(node_network_receive_errs_total[5m]) > 1
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} 网卡收包错误率升高"
+
+      - alert: NetworkTransmitDrops
+        expr: rate(node_network_transmit_drop_total[5m]) > 1
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} 网卡丢包"
+
+      - alert: TCPRetransmitHigh
+        expr: rate(node_netstat_Tcp_RetransSegs[5m]) / rate(node_netstat_Tcp_OutSegs[5m]) > 0.01
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} TCP 重传率 > 1%"
+
+      - alert: ConntrackUsageHigh
+        expr: node_nf_conntrack_entries / node_nf_conntrack_entries_limit > 0.8
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} conntrack 表使用率 > 80%"
+
+  - name: nginx
+    rules:
+      - alert: NginxDown
+        expr: nginx_up == 0
+        for: 1m
+        labels:
+          severity: P0
+        annotations:
+          summary: "Nginx 状态探针失败"
+
+      - alert: NginxActiveConnectionsHigh
+        expr: nginx_connections_active > 800
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Nginx 活跃连接数 {{ $value }}"
+
+      - alert: NginxWaitingConnectionsHigh
+        expr: nginx_connections_waiting > 500
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "Nginx waiting 连接数异常"
+
+      - alert: Nginx5xxRateHigh
+        expr: sum(rate(nginx_http_requests_total{status=~"5.."}[5m])) / sum(rate(nginx_http_requests_total[5m])) > 0.01
+        for: 5m
+        labels:
+          severity: P0
+        annotations:
+          summary: "5xx 比例超过 1%"
+
+      - alert: NginxUpstreamTimeout
+        expr: rate(nginx_upstream_response_time_seconds_bucket{le="+Inf"}[5m]) > 0 and histogram_quantile(0.95, sum(rate(nginx_upstream_response_time_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "上游 P95 响应时间 > 2s"
+
+      - alert: NginxRequestsDrop
+        expr: sum(rate(nginx_http_requests_total[5m])) < 1
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "请求量异常下跌，疑似流量中断"
+
+  - name: mysql
+    rules:
+      - alert: MySQLDown
+        expr: mysql_up == 0
+        for: 1m
+        labels:
+          severity: P0
+        annotations:
+          summary: "MySQL 实例 {{ $labels.instance }} 不可用"
+
+      - alert: MySQLReplicationLag
+        expr: mysql_slave_status_seconds_behind_master > 30
+        for: 3m
+        labels:
+          severity: P1
+        annotations:
+          summary: "主从延迟 {{ $value }}s"
+
+      - alert: MySQLReplicationBroken
+        expr: mysql_slave_status_slave_io_running == 0 or mysql_slave_status_slave_sql_running == 0
+        for: 1m
+        labels:
+          severity: P0
+        annotations:
+          summary: "主从复制线程异常中断"
+
+      - alert: MySQLConnectionsHigh
+        expr: mysql_global_status_threads_connected / mysql_global_variables_max_connections > 0.8
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "连接数使用率 > 80%"
+
+      - alert: MySQLSlowQueries
+        expr: rate(mysql_global_status_slow_queries[5m]) > 5
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "慢查询速率 {{ $value }}/s"
+
+      - alert: MySQLAbortedConnects
+        expr: rate(mysql_global_status_aborted_connects[5m]) > 1
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "MySQL 异常连接次数升高"
+
+      - alert: MySQLBufferPoolHitLow
+        expr: (1 - rate(mysql_global_status_innodb_buffer_pool_reads[5m]) / rate(mysql_global_status_innodb_buffer_pool_read_requests[5m])) * 100 < 95
+        for: 15m
+        labels:
+          severity: P2
+        annotations:
+          summary: "InnoDB 缓冲池命中率 < 95%"
+
+  - name: blackbox
+    rules:
+      - alert: ProbeFailed
+        expr: probe_success == 0
+        for: 2m
+        labels:
+          severity: P0
+        annotations:
+          summary: "URL {{ $labels.instance }} 探活失败"
+
+      - alert: SSLCertExpiringSoon
+        expr: probe_ssl_earliest_cert_expiry - time() < 86400 * 15
+        for: 1h
+        labels:
+          severity: P1
+        annotations:
+          summary: "{{ $labels.instance }} 证书 15 天内到期"
+
+      - alert: ProbeSlow
+        expr: probe_duration_seconds > 3
+        for: 10m
+        labels:
+          severity: P2
+        annotations:
+          summary: "{{ $labels.instance }} 探活耗时 {{ $value }}s"
