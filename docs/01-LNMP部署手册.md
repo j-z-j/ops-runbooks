@@ -318,7 +318,8 @@ time mysql -uroot -p demo_restore < /data/backup/mysql/demo-2026-05-20.sql
 mysql -uroot -p -e "SELECT COUNT(*) FROM demo.orders; SELECT COUNT(*) FROM demo_restore.orders;"
 ```
 
-实测：全量库 1.2 GB，备份耗时约 2 分 10 秒，还原耗时 8 分钟（含索引重建），行数校验一致。
+> 备份耗时与还原耗时**必须自己量**：不同数据量、不同磁盘差别很大（几秒到几十分钟都正常）。
+> 量完把「数据量 / 备份耗时 / 还原耗时 / 校验结果」记到自己的运维日记里，这才是能写进简历的数字。
 
 ## 7. 上线前检查清单
 
