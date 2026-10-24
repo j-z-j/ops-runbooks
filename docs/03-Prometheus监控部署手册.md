@@ -326,7 +326,7 @@ systemctl enable --now grafana-server
 - [ ] `mysql_up==1`，主从延迟指标有曲线
 - [ ] 20+ URL `probe_success==1`，证书指标正常
 - [ ] `promtool check rules` 通过，规则数 30
-- [ ] 手动 `kill` 一个 exporter → **86.8 秒内收到 P0 邮件**（实测值，见 05-实测记录）
+- [ ] 手动 `kill` 一个 exporter → P0 邮件到达（本机复现基线 **86.8 s**，你的环境会有差异，以自己秒表为准，见 [05-实测记录](05-实测记录.md)）
 - [ ] 恢复 exporter → 收到 resolved 邮件
 - [ ] 触发一次磁盘告警 → 与 InstanceDown 同时存在时被抑制，只收到 1 封
 
